@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using BackEnd.Models;
+using BackEnd.Data;
 
 namespace BackEnd.Controllers
 {
@@ -13,25 +13,25 @@ namespace BackEnd.Controllers
     [ApiController]
     public class SpeakersController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
+        private readonly ApplicationDbContext _db;
 
-        public SpeakersController(ApplicationDbContext context)
+        public SpeakersController(ApplicationDbContext db)
         {
-            _context = context;
+            _db = db;
         }
 
         // GET: api/Speakers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Speaker>>> GetSpeakers()
         {
-            return await _context.Speakers.ToListAsync();
+            return await _db.Speakers.ToListAsync();
         }
 
         // GET: api/Speakers/5
         [HttpGet("{id}")]
         public async Task<ActionResult<Speaker>> GetSpeaker(int id)
         {
-            var speaker = await _context.Speakers.FindAsync(id);
+            var speaker = await _db.Speakers.FindAsync(id);
 
             if (speaker == null)
             {
@@ -50,11 +50,11 @@ namespace BackEnd.Controllers
                 return BadRequest();
             }
 
-            _context.Entry(speaker).State = EntityState.Modified;
+            _db.Entry(speaker).State = EntityState.Modified;
 
             try
             {
-                await _context.SaveChangesAsync();
+                await _db.SaveChangesAsync();
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -75,8 +75,8 @@ namespace BackEnd.Controllers
         [HttpPost]
         public async Task<ActionResult<Speaker>> PostSpeaker(Speaker speaker)
         {
-            _context.Speakers.Add(speaker);
-            await _context.SaveChangesAsync();
+            _db.Speakers.Add(speaker);
+            await _db.SaveChangesAsync();
 
             return CreatedAtAction("GetSpeaker", new { id = speaker.ID }, speaker);
         }
@@ -85,21 +85,21 @@ namespace BackEnd.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult<Speaker>> DeleteSpeaker(int id)
         {
-            var speaker = await _context.Speakers.FindAsync(id);
+            var speaker = await _db.Speakers.FindAsync(id);
             if (speaker == null)
             {
                 return NotFound();
             }
 
-            _context.Speakers.Remove(speaker);
-            await _context.SaveChangesAsync();
+            _db.Speakers.Remove(speaker);
+            await _db.SaveChangesAsync();
 
             return speaker;
         }
 
         private bool SpeakerExists(int id)
         {
-            return _context.Speakers.Any(e => e.ID == id);
+            return _db.Speakers.Any(e => e.ID == id);
         }
     }
 }
