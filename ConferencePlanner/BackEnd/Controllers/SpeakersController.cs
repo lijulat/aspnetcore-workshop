@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BackEnd.Data;
+using BackEnd.Infrastructure;
 
 namespace BackEnd.Controllers
 {
@@ -24,57 +25,64 @@ namespace BackEnd.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Speaker>>> GetSpeakers()
         {
-            return await _db.Speakers.ToListAsync();
+            return await _db.Speakers.AsNoTracking()
+                            .Include(s => s.SessionSpeakers)
+                            .ThenInclude(ss => ss.Session)
+                            .ToListAsync();
+
         }
 
         // GET: api/Speakers/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<Speaker>> GetSpeaker(int id)
+        public async Task<ActionResult<ConferenceDTO.SpeakerResponse>> GetSpeaker(int id)
         {
-            var speaker = await _db.Speakers.FindAsync(id);
+            var speaker = await _db.Speakers.AsNoTracking()
+                                .Include(s => s.SessionSpeakers)
+                                .ThenInclude(ss => ss.Session)
+                                .SingleOrDefaultAsync(s => s.ID == id);
 
             if (speaker == null)
             {
                 return NotFound();
             }
 
-            return speaker;
+            var result = speaker.MapSpeakerResponse();
+            return result;
         }
 
         // PUT: api/Speakers/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutSpeaker(int id, Speaker speaker)
+        public async Task<IActionResult> PutSpeaker(int id, ConferenceDTO.Speaker input)
         {
-            if (id != speaker.ID)
+            
+            var speaker = await _db.FindAsync<Speaker>(id);
+
+            if (speaker == null)
             {
-                return BadRequest();
+                return NotFound();
             }
 
-            _db.Entry(speaker).State = EntityState.Modified;
+            speaker.Name = input.Name;
+            speaker.WebSite = input.WebSite;
+            speaker.Bio = input.Bio;
 
-            try
-            {
-                await _db.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!SpeakerExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
+            // TODO: Handle exceptions, e.g. concurrency
+            await _db.SaveChangesAsync();
 
             return NoContent();
         }
 
         // POST: api/Speakers
         [HttpPost]
-        public async Task<ActionResult<Speaker>> PostSpeaker(Speaker speaker)
+        public async Task<ActionResult<ConferenceDTO.SpeakerResponse>> PostSpeaker(ConferenceDTO.Speaker input)
         {
+            var speaker = new Speaker
+            {
+                Name = input.Name,
+                WebSite = input.WebSite,
+                Bio = input.Bio
+            };
+
             _db.Speakers.Add(speaker);
             await _db.SaveChangesAsync();
 
@@ -83,18 +91,19 @@ namespace BackEnd.Controllers
 
         // DELETE: api/Speakers/5
         [HttpDelete("{id}")]
-        public async Task<ActionResult<Speaker>> DeleteSpeaker(int id)
+        public async Task<ActionResult<ConferenceDTO.SpeakerResponse>> DeleteSpeaker(int id)
         {
-            var speaker = await _db.Speakers.FindAsync(id);
+            var speaker = await _db.FindAsync<Speaker>(id);
+
             if (speaker == null)
             {
                 return NotFound();
             }
 
-            _db.Speakers.Remove(speaker);
+            _db.Remove(speaker);
             await _db.SaveChangesAsync();
 
-            return speaker;
+            return speaker.MapSpeakerResponse();
         }
 
         private bool SpeakerExists(int id)
